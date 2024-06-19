@@ -117,6 +117,7 @@ app.post('/api/register', async (req, res) => {
 });
 
 app.post('/api/login', passport.authenticate('local'), (req, res) => {
+  req.session.usedMemes = [];
   res.send('Logged in');
 });
 
@@ -144,11 +145,16 @@ app.get('/api/profile', async (req, res) => {
 
 app.get('/api/memes', async (req, res) => {
   try {
-    const memes = await db.all('SELECT * FROM memes');
+    if (!req.session.usedMemes) {
+      req.session.usedMemes = [];
+    }
+    const usedMemes = req.session.usedMemes.length > 0 ? req.session.usedMemes : [0]; // Ensure there's at least one ID to avoid SQL syntax error
+    const memes = await db.all('SELECT * FROM memes WHERE id NOT IN (' + usedMemes.join(',') + ')');
     if (memes.length === 0) {
       return res.status(500).send('No memes available');
     }
     const meme = memes[Math.floor(Math.random() * memes.length)];
+    req.session.usedMemes.push(meme.id);
 
     const correctCaptions = await db.all('SELECT * FROM captions JOIN meme_captions ON captions.id = meme_captions.caption_id WHERE meme_captions.meme_id = ? AND meme_captions.is_correct = 1', [meme.id]);
     const incorrectCaptions = await db.all('SELECT * FROM captions WHERE id NOT IN (SELECT caption_id FROM meme_captions WHERE meme_id = ?)', [meme.id]);
