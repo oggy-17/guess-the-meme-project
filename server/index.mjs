@@ -1,43 +1,78 @@
-// server/index.mjs
-
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
 import passport from 'passport';
-import bodyParser from 'body-parser';
 import { Strategy as LocalStrategy } from 'passport-local';
-import bcrypt from 'bcrypt';
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
+import bcrypt from 'bcrypt';
 
 const app = express();
-const PORT = 3001;
+const port = 3001;
 
-let db;
-
-// Middleware
 app.use(cors({
-  origin: 'http://localhost:5173',
-  credentials: true,
+  origin: 'http://localhost:5173', // Ensure this matches the client's origin
+  credentials: true
 }));
-app.use(bodyParser.json());
+app.use(express.json());
 app.use(session({
   secret: 'secret',
   resave: false,
-  saveUninitialized: false,
+  saveUninitialized: true
 }));
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Passport configuration
+// SQLite setup
+let db;
+(async () => {
+  db = await open({
+    filename: './database.db',
+    driver: sqlite3.Database
+  });
+  await db.run(`CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT,
+    password TEXT
+  )`);
+  await db.run(`CREATE TABLE IF NOT EXISTS memes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    image_url TEXT
+  )`);
+  await db.run(`CREATE TABLE IF NOT EXISTS captions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    text TEXT
+  )`);
+  await db.run(`CREATE TABLE IF NOT EXISTS meme_captions (
+    meme_id INTEGER,
+    caption_id INTEGER,
+    best_match BOOLEAN
+  )`);
+  await db.run(`CREATE TABLE IF NOT EXISTS games (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    score INTEGER
+  )`);
+  await db.run(`CREATE TABLE IF NOT EXISTS rounds (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id INTEGER,
+    meme_id INTEGER,
+    selected_caption_id INTEGER,
+    is_correct BOOLEAN
+  )`);
+})();
+
+// Passport setup
 passport.use(new LocalStrategy(async (username, password, done) => {
   try {
     const user = await db.get('SELECT * FROM users WHERE username = ?', [username]);
-    if (!user) return done(null, false, { message: 'Incorrect username.' });
-
+    if (!user) {
+      return done(null, false, { message: 'Incorrect username.' });
+    }
     const match = await bcrypt.compare(password, user.password);
-    if (!match) return done(null, false, { message: 'Incorrect password.' });
-
+    if (!match) {
+      return done(null, false, { message: 'Incorrect password.' });
+    }
     return done(null, user);
   } catch (err) {
     return done(err);
@@ -48,140 +83,78 @@ passport.serializeUser((user, done) => {
   done(null, user.id);
 });
 
-passport.deserializeUser(async (id, done) => {
-  try {
-    const user = await db.get('SELECT * FROM users WHERE id = ?', [id]);
-    done(null, user);
-  } catch (err) {
-    done(err);
-  }
+passport.deserializeUser((id, done) => {
+  db.get('SELECT * FROM users WHERE id = ?', [id], (err, user) => {
+    done(err, user);
+  });
 });
 
-// Connect to the database
-(async () => {
-  db = await open({
-    filename: './database.sqlite',
-    driver: sqlite3.Database,
-  });
+// API routes
+app.post('/login', (req, res, next) => {
+  console.log('Login attempt:', req.body); // Log the login attempt
+  passport.authenticate('local', (err, user, info) => {
+    if (err) {
+      console.error('Authentication error:', err);
+      return next(err);
+    }
+    if (!user) {
+      console.warn('Invalid username or password:', info.message);
+      return res.status(401).send(info.message || 'Invalid username or password');
+    }
+    req.logIn(user, (err) => {
+      if (err) {
+        console.error('Login error:', err);
+        return next(err);
+      }
+      console.log('User logged in:', user.username); // Log successful login
+      return res.send('Logged in');
+    });
+  })(req, res, next);
+});
 
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT NOT NULL UNIQUE,
-      password TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS memes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      url TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS captions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      text TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS meme_captions (
-      meme_id INTEGER,
-      caption_id INTEGER,
-      is_correct INTEGER,
-      FOREIGN KEY (meme_id) REFERENCES memes(id),
-      FOREIGN KEY (caption_id) REFERENCES captions(id)
-    );
-    CREATE TABLE IF NOT EXISTS games (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER,
-      score INTEGER,
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    );
-    CREATE TABLE IF NOT EXISTS rounds (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      game_id INTEGER,
-      meme_id INTEGER,
-      selected_caption_id INTEGER,
-      score INTEGER,
-      FOREIGN KEY (game_id) REFERENCES games(id),
-      FOREIGN KEY (meme_id) REFERENCES memes(id),
-      FOREIGN KEY (selected_caption_id) REFERENCES captions(id)
-    );
-  `);
-})();
+app.get('/logout', (req, res) => {
+  req.logout();
+  res.send('Logged out');
+});
 
-// Routes
-app.post('/api/register', async (req, res) => {
+app.post('/register', async (req, res) => {
+  const { username, password } = req.body;
+  const hashedPassword = await bcrypt.hash(password, 10);
+  console.log('Registering user:', { username, hashedPassword }); // Log the registration details
   try {
-    const { username, password } = req.body;
-    const hashedPassword = await bcrypt.hash(password, 10);
     await db.run('INSERT INTO users (username, password) VALUES (?, ?)', [username, hashedPassword]);
     res.status(201).send('User registered');
   } catch (err) {
-    res.status(500).send(err.message);
+    console.error('Registration error:', err); // Log any errors
+    res.status(500).send('User registration failed');
   }
 });
 
-app.post('/api/login', passport.authenticate('local'), (req, res) => {
-  req.session.usedMemes = [];
-  res.send('Logged in');
-});
-
-app.post('/api/logout', (req, res) => {
-  req.logout(err => {
-    if (err) { 
-      return res.status(500).send(err.message);
-    }
-    res.send('Logged out');
-  });
-});
-
-app.get('/api/profile', async (req, res) => {
-  if (!req.isAuthenticated()) {
-    return res.status(401).send('Not authenticated');
-  }
+app.get('/api/meme', async (req, res) => {
   try {
-    const user = req.user;
-    const games = await db.all('SELECT * FROM games WHERE user_id = ?', [user.id]);
-    res.json({ user, games });
-  } catch (err) {
-    res.status(500).send(err.message);
-  }
-});
-
-app.get('/api/memes', async (req, res) => {
-  try {
-    if (!req.session.usedMemes) {
-      req.session.usedMemes = [];
+    const meme = await db.get('SELECT * FROM memes ORDER BY RANDOM() LIMIT 1');
+    if (!meme) {
+      return res.status(404).json({ error: 'No meme found' });
     }
-    const usedMemes = req.session.usedMemes.length > 0 ? req.session.usedMemes : [0]; // Ensure there's at least one ID to avoid SQL syntax error
-    const memes = await db.all('SELECT * FROM memes WHERE id NOT IN (' + usedMemes.join(',') + ')');
-    if (memes.length === 0) {
-      return res.status(500).send('No memes available');
-    }
-    const meme = memes[Math.floor(Math.random() * memes.length)];
-    req.session.usedMemes.push(meme.id);
 
-    const correctCaptions = await db.all('SELECT * FROM captions JOIN meme_captions ON captions.id = meme_captions.caption_id WHERE meme_captions.meme_id = ? AND meme_captions.is_correct = 1', [meme.id]);
-    const incorrectCaptions = await db.all('SELECT * FROM captions WHERE id NOT IN (SELECT caption_id FROM meme_captions WHERE meme_id = ?)', [meme.id]);
+    const captions = await db.all('SELECT * FROM captions ORDER BY RANDOM() LIMIT 7');
+    const bestMatchCaptions = await db.all('SELECT caption_id FROM meme_captions WHERE meme_id = ? AND best_match = 1', [meme.id]);
     
-    if (correctCaptions.length < 2 || incorrectCaptions.length < 5) {
-      return res.status(500).send('Not enough captions available');
-    }
-
-    const selectedIncorrectCaptions = incorrectCaptions.sort(() => 0.5 - Math.random()).slice(0, 5);
-    const allCaptions = [...correctCaptions, ...selectedIncorrectCaptions].sort(() => 0.5 - Math.random());
-
-    res.json({ meme, captions: allCaptions });
+    res.json({ meme, captions, bestMatchCaptions });
   } catch (err) {
-    res.status(500).send(err.message);
+    console.error('Error fetching meme:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-app.post('/api/rounds', async (req, res) => {
-  try {
-    const { gameId, memeId, selectedCaptionId, score } = req.body;
-    await db.run('INSERT INTO rounds (game_id, meme_id, selected_caption_id, score) VALUES (?, ?, ?, ?)', [gameId, memeId, selectedCaptionId, score]);
-    res.status(201).send('Round recorded');
-  } catch (err) {
-    res.status(500).send(err.message);
-  }
+
+app.post('/api/submit', async (req, res) => {
+  const { meme_id, caption_id } = req.body;
+  const bestMatchCaptions = await db.all('SELECT caption_id FROM meme_captions WHERE meme_id = ? AND best_match = 1', [meme_id]);
+  const isCorrect = bestMatchCaptions.some(c => c.caption_id === caption_id);
+  res.json({ isCorrect });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
 });
