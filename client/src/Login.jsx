@@ -10,10 +10,12 @@ function Login() {
   const handleLogin = async (e) => {
     e.preventDefault();
     console.log('Login button clicked'); // Log button click
+
     try {
       const response = await axios.post('http://localhost:3001/login', { username, password }, { withCredentials: true });
       console.log('Login response:', response); // Log the response
       if (response.status === 200) {
+        console.log('Login successful, navigating to game'); // Log successful login
         navigate('/game');
       }
     } catch (error) {
@@ -29,6 +31,7 @@ function Login() {
         <button type="submit">Login</button>
       </form>
       <Link to="/register">Register</Link>
+      <button onClick={() => navigate('/game?guest=true')}>Play as Guest</button>
     </div>
   );
 }
