@@ -112,6 +112,8 @@ app.post('/login', (req, res, next) => {
   })(req, res, next);
 });
 
+
+
 app.get('/logout', (req, res) => {
   req.logout();
   res.send('Logged out');
@@ -137,16 +139,22 @@ app.get('/api/meme', async (req, res) => {
       return res.status(404).json({ error: 'No meme found' });
     }
 
-    const captions = await db.all('SELECT * FROM captions ORDER BY RANDOM() LIMIT 7');
-    const bestMatchCaptions = await db.all('SELECT caption_id FROM meme_captions WHERE meme_id = ? AND best_match = 1', [meme.id]);
-    
-    res.json({ meme, captions, bestMatchCaptions });
+    const correctCaptions = await db.all('SELECT c.id, c.text FROM captions c JOIN meme_captions mc ON c.id = mc.caption_id WHERE mc.meme_id = ? AND mc.best_match = 1', [meme.id]);
+    const incorrectCaptions = await db.all('SELECT c.id, c.text FROM captions c JOIN meme_captions mc ON c.id = mc.caption_id WHERE mc.meme_id = ? AND mc.best_match = 0', [meme.id]);
+
+    // Select two correct and five incorrect captions
+    const selectedCaptions = [
+      ...correctCaptions.slice(0, 1),
+      ...incorrectCaptions.slice(0, 5),
+      ...correctCaptions.slice(1, 2)
+    ];
+
+    res.json({ meme, captions: selectedCaptions });
   } catch (err) {
     console.error('Error fetching meme:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 
 app.post('/api/submit', async (req, res) => {
   const { meme_id, caption_id } = req.body;
