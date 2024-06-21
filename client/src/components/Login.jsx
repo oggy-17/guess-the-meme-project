@@ -9,17 +9,17 @@ function Login() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    console.log('Login button clicked'); // Log button click
+    console.log('Login button clicked');
 
     try {
       const response = await axios.post('http://localhost:3001/login', { username, password }, { withCredentials: true });
-      console.log('Login response:', response); // Log the response
+      console.log('Login response:', response);
       if (response.status === 200) {
-        console.log('Login successful, navigating to game'); // Log successful login
+        console.log('Login successful, navigating to game');
         navigate('/game');
       }
     } catch (error) {
-      console.error('Login failed:', error.response ? error.response.data : error.message); // Log error details
+      console.error('Login failed:', error.response ? error.response.data : error.message);
     }
   };
 
