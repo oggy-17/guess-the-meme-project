@@ -116,13 +116,17 @@ function Game() {
     }
   };
 
-  const handleExit = async () => {
+  const handleLogout = async () => {
     try {
       await axios.get('http://localhost:3001/logout', { withCredentials: true });
-      navigate('/');
+      navigate('/login');
     } catch (error) {
       console.error('Error during logout:', error.response ? error.response.data : error.message);
     }
+  };
+
+  const handleExit = async () => {
+    navigate('/');
   };
 
   const handleRestart = () => {
@@ -139,6 +143,7 @@ function Game() {
   if (gameCompleted) {
     return (
       <div>
+        {!isGuest && <button onClick={handleLogout} style={{ position: 'absolute', top: '10px', right: '10px' }}>Logout</button>}
         <h2>Game Over</h2>
         <p>Total Score: {score}</p>
         <h3>Round Results</h3>
@@ -151,13 +156,14 @@ function Game() {
           </div>
         ))}
         <button onClick={handleRestart}>Restart Game</button>
-        <button onClick={handleExit}>Exit</button>
+        {isGuest && <button onClick={handleExit}>Exit</button>}
       </div>
     );
   }
 
   return (
     <div>
+      {!isGuest && <button onClick={handleLogout} style={{ position: 'absolute', top: '10px', right: '10px' }}>Logout</button>}
       {meme ? (
         <div>
           <img src={meme.image_url} alt="Meme" />
@@ -174,7 +180,7 @@ function Game() {
       <button onClick={handleSubmit}>Submit</button>
       <div>Score: {score}</div>
       <div>Round: {round} / {isGuest ? 1 : 3}</div>
-      <button onClick={handleExit}>Exit</button>
+      {isGuest && <button onClick={handleExit}>Exit</button>}
     </div>
   );
 }
