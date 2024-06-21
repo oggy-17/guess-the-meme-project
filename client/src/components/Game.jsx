@@ -74,7 +74,7 @@ function Game() {
     try {
       const response = await axios.post('http://localhost:3001/api/submit', {
         meme_id: meme.id,
-        caption_id: selectedCaption
+        caption_id: selectedCaption.id
       }, { 
         withCredentials: true,
         params: { guest: isGuest }
@@ -150,7 +150,7 @@ function Game() {
         {roundResults.map((result, index) => (
           <div key={index}>
             <img src={result.meme.image_url} alt="Meme" />
-            <p>Selected Caption: {result.selectedCaption}</p>
+            <p>Selected Caption: {result.selectedCaption.text}</p>
             <p>Correct: {result.isCorrect ? 'Yes' : 'No'}</p>
             <p>Points: {result.points}</p>
           </div>
@@ -168,7 +168,7 @@ function Game() {
         <div>
           <img src={meme.image_url} alt="Meme" />
           {captions.map(caption => (
-            <button key={caption.id} onClick={() => setSelectedCaption(caption.id)}>
+            <button key={caption.id} onClick={() => setSelectedCaption(caption)}>
               {caption.text}
             </button>
           ))}
