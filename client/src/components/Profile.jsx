@@ -52,7 +52,7 @@ function Profile() {
                       {game.rounds.map(round => (
                         <div key={round.id}>
                           <img src={round.meme.image_url} alt="Meme" className="img-fluid mb-2" />
-                          <p><strong>Selected Caption:</strong> {round.selected_caption}</p>
+                          <p><strong>Selected Caption:</strong> {round.selected_caption || "None"}</p>
                           <p><strong>Correct:</strong> {round.is_correct ? 'Yes' : 'No'}</p>
                           <p><strong>Points:</strong> {round.is_correct ? 5 : 0}</p>
                         </div>

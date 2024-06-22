@@ -27,7 +27,7 @@ function Game() {
       setTimer(prev => {
         if (prev === 0) {
           clearInterval(countdown);
-          handleSubmit();
+          handleTimeout();
           return 0;
         }
         return prev - 1;
@@ -67,6 +67,32 @@ function Game() {
     }
   };
 
+  const handleTimeout = () => {
+    const result = {
+      meme,
+      selectedCaption: null,
+      isCorrect: false,
+      points: 0,
+    };
+
+    setRoundResults(prev => {
+      if (prev.find(res => res.meme.id === result.meme.id)) {
+        return prev;
+      }
+      return [...prev, result];
+    });
+
+    if (round < 3) {
+      setRound(round + 1);
+      setTimer(30);
+      setSelectedCaption(null);
+      fetchMeme();
+    } else {
+      setGameCompleted(true);
+      saveGame([...roundResults, result], score);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!selectedCaption) {
       setError('Please select a caption.');
@@ -96,26 +122,29 @@ function Game() {
 
       setRoundResults(prev => [...prev, result]);
 
-      if (!isGuest && round < 3) {
-        setRound(prev => prev + 1);
+      if (round < 3) {
+        setRound(round + 1);
         setTimer(30);
         setSelectedCaption(null);
         fetchMeme();
       } else {
         setGameCompleted(true);
-        if (!isGuest) {
-          try {
-            await axios.post('http://localhost:3001/api/save-game', {
-              results: [...roundResults, result],
-              score: score + points,
-            }, { withCredentials: true });
-          } catch (error) {
-            setError('Failed to save game. Please try again.');
-          }
-        }
+        saveGame([...roundResults, result], score + points);
       }
     } catch (error) {
       setError('Error in submit. Please try again.');
+    }
+  };
+
+  const saveGame = async (results, finalScore) => {
+    if (isGuest) return;
+    try {
+      await axios.post('http://localhost:3001/api/save-game', {
+        results,
+        score: finalScore,
+      }, { withCredentials: true });
+    } catch (error) {
+      setError('Failed to save game. Please try again.');
     }
   };
 
@@ -167,7 +196,7 @@ function Game() {
                 <Card.Body>
                   <Card.Img variant="top" src={result.meme.image_url} />
                   <Card.Text>
-                    <p><strong>Selected Caption:</strong> {result.selectedCaption.text}</p>
+                    <p><strong>Selected Caption:</strong> {result.selectedCaption?.text || "None"}</p>
                     <p><strong>Correct:</strong> {result.isCorrect ? 'Yes' : 'No'}</p>
                     <p><strong>Points:</strong> {result.points}</p>
                   </Card.Text>

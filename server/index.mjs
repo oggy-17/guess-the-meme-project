@@ -23,8 +23,8 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    secure: false, // Set to true if using HTTPS
-    maxAge: 1000 * 60 * 30 // Session expiration in milliseconds
+    secure: false,
+    maxAge: 1000 * 60 * 30
   }
 }));
 
@@ -203,11 +203,11 @@ app.post('/api/save-game', ensureAuthenticated, async (req, res) => {
     console.log('Game ID:', gameId);
 
     for (const result of results) {
-      console.log('Saving round for game:', gameId, 'Meme ID:', result.meme.id, 'Selected Caption ID:', result.selectedCaption.id, 'Is Correct:', result.isCorrect);
+      console.log('Saving round for game:', gameId, 'Meme ID:', result.meme.id, 'Selected Caption ID:', result.selectedCaption?.id || null, 'Is Correct:', result.isCorrect);
       await db.run('INSERT INTO rounds (game_id, meme_id, selected_caption_id, is_correct) VALUES (?, ?, ?, ?)', [
         gameId,
         result.meme.id,
-        result.selectedCaption.id,
+        result.selectedCaption?.id || null,
         result.isCorrect
       ]);
     }
@@ -228,8 +228,8 @@ app.get('/api/games', ensureAuthenticated, async (req, res) => {
       const rounds = await db.all('SELECT * FROM rounds WHERE game_id = ?', [game.id]);
       const roundsDetails = await Promise.all(rounds.map(async (round) => {
         const meme = await db.get('SELECT * FROM memes WHERE id = ?', [round.meme_id]);
-        const caption = await db.get('SELECT text FROM captions WHERE id = ?', [round.selected_caption_id]);
-        return { ...round, meme, selected_caption: caption.text };
+        const caption = round.selected_caption_id ? await db.get('SELECT text FROM captions WHERE id = ?', [round.selected_caption_id]) : null;
+        return { ...round, meme, selected_caption: caption ? caption.text : null };
       }));
       return { ...game, rounds: roundsDetails };
     }));
