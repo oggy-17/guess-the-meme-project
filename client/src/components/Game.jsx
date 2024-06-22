@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { Container, Row, Col, Button, Alert, Card, ProgressBar } from 'react-bootstrap';
 
 function Game() {
   const [meme, setMeme] = useState(null);
@@ -12,6 +13,7 @@ function Game() {
   const [usedMemes, setUsedMemes] = useState([]);
   const [gameCompleted, setGameCompleted] = useState(false);
   const [roundResults, setRoundResults] = useState([]);
+  const [error, setError] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
   const isGuest = new URLSearchParams(location.search).get('guest') === 'true';
@@ -37,45 +39,46 @@ function Game() {
 
   const fetchMeme = async () => {
     try {
-      console.log('Fetching meme...');
+      setError('');
       let response;
       let meme;
       let attempts = 0;
       do {
-        response = await axios.get('http://localhost:3001/api/meme', { 
+        response = await axios.get('http://localhost:3001/api/meme', {
           withCredentials: true,
           params: { guest: isGuest }
         });
         meme = response.data.meme;
         attempts++;
-        console.log(`Attempt ${attempts}: Meme ID - ${meme.id}`);
       } while (usedMemes.includes(meme.id) && attempts < 10);
 
       if (usedMemes.includes(meme.id)) {
-        console.error('Unable to find a new meme after 10 attempts');
+        setError('Unable to find a new meme after 10 attempts');
         return;
       }
 
       setUsedMemes(prev => [...prev, meme.id]);
       setMeme(meme);
-      console.log('Fetched meme:', meme);
 
       const shuffledCaptions = response.data.captions.sort(() => Math.random() - 0.5);
       setCaptions(shuffledCaptions);
-      console.log('Fetched and shuffled captions:', shuffledCaptions);
     } catch (error) {
-      console.error('Failed to fetch meme:', error.response ? error.response.data : error.message);
+      setError('Failed to fetch meme. Please try again.');
     }
   };
 
   const handleSubmit = async () => {
-    if (!selectedCaption) return;
+    if (!selectedCaption) {
+      setError('Please select a caption.');
+      return;
+    }
 
     try {
+      setError('');
       const response = await axios.post('http://localhost:3001/api/submit', {
         meme_id: meme.id,
         caption_id: selectedCaption.id
-      }, { 
+      }, {
         withCredentials: true,
         params: { guest: isGuest }
       });
@@ -96,7 +99,7 @@ function Game() {
       if (!isGuest && round < 3) {
         setRound(prev => prev + 1);
         setTimer(30);
-        setSelectedCaption(null);  // Reset selected caption
+        setSelectedCaption(null);
         fetchMeme();
       } else {
         setGameCompleted(true);
@@ -107,12 +110,12 @@ function Game() {
               score: score + points,
             }, { withCredentials: true });
           } catch (error) {
-            console.error('Failed to save game:', error.response ? error.response.data : error.message);
+            setError('Failed to save game. Please try again.');
           }
         }
       }
     } catch (error) {
-      console.error('Error in submit:', error.response ? error.response.data : error.message);
+      setError('Error in submit. Please try again.');
     }
   };
 
@@ -121,11 +124,11 @@ function Game() {
       await axios.get('http://localhost:3001/logout', { withCredentials: true });
       navigate('/login');
     } catch (error) {
-      console.error('Error during logout:', error.response ? error.response.data : error.message);
+      setError('Error during logout. Please try again.');
     }
   };
 
-  const handleExit = async () => {
+  const handleExit = () => {
     navigate('/');
   };
 
@@ -135,7 +138,7 @@ function Game() {
     setUsedMemes([]);
     setRoundResults([]);
     setGameCompleted(false);
-    setSelectedCaption(null);  // Reset selected caption
+    setSelectedCaption(null);
     setTimer(30);
     fetchMeme();
   };
@@ -144,58 +147,66 @@ function Game() {
     navigate('/profile');
   };
 
-  if (gameCompleted) {
-    return (
-      <div>
-        {!isGuest && (
-          <div style={{ position: 'absolute', top: '10px', right: '10px' }}>
-            <button onClick={handleProfile}>Profile</button>
-            <button onClick={handleLogout}>Logout</button>
-          </div>
-        )}
-        <h2>Game Over</h2>
-        <p>Total Score: {score}</p>
-        <h3>Round Results</h3>
-        {roundResults.map((result, index) => (
-          <div key={index}>
-            <img src={result.meme.image_url} alt="Meme" />
-            <p>Selected Caption: {result.selectedCaption.text}</p>
-            <p>Correct: {result.isCorrect ? 'Yes' : 'No'}</p>
-            <p>Points: {result.points}</p>
-          </div>
-        ))}
-        <button onClick={handleRestart}>Restart Game</button>
-        {isGuest && <button onClick={handleExit}>Exit</button>}
-      </div>
-    );
-  }
-
   return (
-    <div>
+    <Container className="text-center mt-5 full-height">
+      {error && <Alert variant="danger">{error}</Alert>}
       {!isGuest && (
-        <div style={{ position: 'absolute', top: '10px', right: '10px' }}>
-          <button onClick={handleProfile}>Profile</button>
-          <button onClick={handleLogout}>Logout</button>
+        <div className="d-flex justify-content-end mb-3">
+          <Button variant="primary" onClick={handleProfile}>Profile</Button>
+          <Button variant="secondary" onClick={handleLogout} className="ms-2">Logout</Button>
         </div>
       )}
-      {meme ? (
-        <div>
-          <img src={meme.image_url} alt="Meme" />
-          {captions.map(caption => (
-            <button key={caption.id} onClick={() => setSelectedCaption(caption)}>
-              {caption.text}
-            </button>
-          ))}
+      {gameCompleted ? (
+        <div className="results-container">
+          <h2>Game Over</h2>
+          <p>Total Score: {score}</p>
+          <h3>Round Results</h3>
+          <Row className="justify-content-center">
+            {roundResults.map((result, index) => (
+              <Col key={index} xs={12} md={6} lg={4} className="mb-3">
+                <Card className="card-custom">
+                  <Card.Body>
+                    <Card.Img variant="top" src={result.meme.image_url} />
+                    <Card.Text>
+                      <p><strong>Selected Caption:</strong> {result.selectedCaption.text}</p>
+                      <p><strong>Correct:</strong> {result.isCorrect ? 'Yes' : 'No'}</p>
+                      <p><strong>Points:</strong> {result.points}</p>
+                    </Card.Text>
+                  </Card.Body>
+                </Card>
+              </Col>
+            ))}
+          </Row>
+          <Button variant="primary" onClick={handleRestart}>Restart Game</Button>
+          {isGuest && <Button variant="secondary" onClick={handleExit} className="ms-2">Exit</Button>}
         </div>
       ) : (
-        <p>Loading meme...</p>
+        <div className="results-container">
+          {meme ? (
+            <div>
+              <img src={meme.image_url} alt="Meme" className="img-fluid mb-3" />
+              <Row className="justify-content-center">
+                {captions.map(caption => (
+                  <Col key={caption.id} xs={12} md={6} lg={4} className="mb-3">
+                    <Button variant="outline-primary" className="w-100" onClick={() => setSelectedCaption(caption)}>
+                      {caption.text}
+                    </Button>
+                  </Col>
+                ))}
+              </Row>
+            </div>
+          ) : (
+            <p>Loading meme...</p>
+          )}
+          <div>Time left: {timer}s</div>
+          <ProgressBar now={(30 - timer) / 30 * 100} className="mb-3" />
+          <Button variant="primary" onClick={handleSubmit} className="mt-3">Submit</Button>
+          <div>Score: {score}</div>
+          <div>Round: {round} / {isGuest ? 1 : 3}</div>
+          {isGuest && <Button variant="secondary" onClick={handleExit} className="mt-3">Exit</Button>}
+        </div>
       )}
-      <div>Time left: {timer}s</div>
-      <button onClick={handleSubmit}>Submit</button>
-      <div>Score: {score}</div>
-      <div>Round: {round} / {isGuest ? 1 : 3}</div>
-      {isGuest && <button onClick={handleExit}>Exit</button>}
-    </div>
+    </Container>
   );
 }
 
