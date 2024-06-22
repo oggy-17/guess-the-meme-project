@@ -33,19 +33,16 @@ function Profile() {
 
   return (
     <Container className="text-center mt-5">
-      <div className="d-flex justify-content-between mb-3">
-        <h1>Profile</h1>
-        <div className="button-group">
-          <Button variant="primary" onClick={handleBackToGame}>Back to Game</Button>
-          <Button variant="secondary" onClick={handleShowHistory}>Show History</Button>
-        </div>
+      <h1>Profile</h1>
+      <div className="button-group my-3">
+        <Button variant="primary" onClick={handleBackToGame}>Back to Game</Button>
+        <Button variant="secondary" onClick={handleShowHistory}>Show History</Button>
       </div>
       {showHistory && (
         <div className="results-container">
-          <h2>Game History</h2>
           <Row className="justify-content-center">
             {games.map(game => (
-              <Col key={game.id} xs={12} md={6} lg={4} className="mb-3">
+              <Col key={game.id} xs={12} md={6} lg={4}>
                 <Card className="card-custom">
                   <Card.Body>
                     <Card.Title>Game {game.id}</Card.Title>

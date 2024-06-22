@@ -148,7 +148,7 @@ function Game() {
   };
 
   return (
-    <Container className="text-center mt-5 full-height">
+    <Container className="text-center">
       {error && <Alert variant="danger">{error}</Alert>}
       {!isGuest && (
         <div className="d-flex justify-content-end mb-3">
@@ -157,35 +157,33 @@ function Game() {
         </div>
       )}
       {gameCompleted ? (
-        <div className="results-container">
+        <div>
           <h2>Game Over</h2>
           <p>Total Score: {score}</p>
           <h3>Round Results</h3>
-          <Row className="justify-content-center">
+          <div className="results-container">
             {roundResults.map((result, index) => (
-              <Col key={index} xs={12} md={6} lg={4} className="mb-3">
-                <Card className="card-custom">
-                  <Card.Body>
-                    <Card.Img variant="top" src={result.meme.image_url} />
-                    <Card.Text>
-                      <p><strong>Selected Caption:</strong> {result.selectedCaption.text}</p>
-                      <p><strong>Correct:</strong> {result.isCorrect ? 'Yes' : 'No'}</p>
-                      <p><strong>Points:</strong> {result.points}</p>
-                    </Card.Text>
-                  </Card.Body>
-                </Card>
-              </Col>
+              <Card key={index} className="mb-3 card-custom">
+                <Card.Body>
+                  <Card.Img variant="top" src={result.meme.image_url} />
+                  <Card.Text>
+                    <p><strong>Selected Caption:</strong> {result.selectedCaption.text}</p>
+                    <p><strong>Correct:</strong> {result.isCorrect ? 'Yes' : 'No'}</p>
+                    <p><strong>Points:</strong> {result.points}</p>
+                  </Card.Text>
+                </Card.Body>
+              </Card>
             ))}
-          </Row>
+          </div>
           <Button variant="primary" onClick={handleRestart}>Restart Game</Button>
           {isGuest && <Button variant="secondary" onClick={handleExit} className="ms-2">Exit</Button>}
         </div>
       ) : (
-        <div className="results-container">
+        <div>
           {meme ? (
             <div>
               <img src={meme.image_url} alt="Meme" className="img-fluid mb-3" />
-              <Row className="justify-content-center">
+              <Row>
                 {captions.map(caption => (
                   <Col key={caption.id} xs={12} md={6} lg={4} className="mb-3">
                     <Button variant="outline-primary" className="w-100" onClick={() => setSelectedCaption(caption)}>

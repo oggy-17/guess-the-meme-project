@@ -12,9 +12,6 @@ import './index.css';
 function App() {
   return (
     <Router>
-      <div className="header">
-        <h1>What Do You Meme?</h1>
-      </div>
       <Container className="container-custom full-height">
         <Routes>
           <Route path="/" element={<Login />} />
