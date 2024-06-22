@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Container, Row, Col, Button, Alert, Card, ProgressBar } from 'react-bootstrap';
@@ -17,6 +17,7 @@ function Game() {
   const location = useLocation();
   const navigate = useNavigate();
   const isGuest = new URLSearchParams(location.search).get('guest') === 'true';
+  const roundProcessingRef = useRef(false);
 
   useEffect(() => {
     fetchMeme();
@@ -68,6 +69,9 @@ function Game() {
   };
 
   const handleTimeout = () => {
+    if (roundProcessingRef.current) return;
+    roundProcessingRef.current = true;
+
     const result = {
       meme,
       selectedCaption: null,
@@ -76,17 +80,17 @@ function Game() {
     };
 
     setRoundResults(prev => {
-      if (prev.find(res => res.meme.id === result.meme.id)) {
-        return prev;
-      }
-      return [...prev, result];
+      const newResults = [...prev];
+      newResults[round - 1] = result; // Ensure no duplicates
+      return newResults;
     });
 
-    if (round < 3) {
+    if (round < (isGuest ? 1 : 3)) {
       setRound(round + 1);
       setTimer(30);
       setSelectedCaption(null);
       fetchMeme();
+      roundProcessingRef.current = false;
     } else {
       setGameCompleted(true);
       saveGame([...roundResults, result], score);
@@ -99,8 +103,12 @@ function Game() {
       return;
     }
 
+    if (roundProcessingRef.current) return;
+    roundProcessingRef.current = true;
+
     try {
       setError('');
+
       const response = await axios.post('http://localhost:3001/api/submit', {
         meme_id: meme.id,
         caption_id: selectedCaption.id
@@ -120,19 +128,25 @@ function Game() {
         points,
       };
 
-      setRoundResults(prev => [...prev, result]);
+      setRoundResults(prev => {
+        const newResults = [...prev];
+        newResults[round - 1] = result; // Ensure no duplicates
+        return newResults;
+      });
 
-      if (round < 3) {
+      if (round < (isGuest ? 1 : 3)) {
         setRound(round + 1);
         setTimer(30);
         setSelectedCaption(null);
         fetchMeme();
+        roundProcessingRef.current = false;
       } else {
         setGameCompleted(true);
         saveGame([...roundResults, result], score + points);
       }
     } catch (error) {
       setError('Error in submit. Please try again.');
+      roundProcessingRef.current = false;
     }
   };
 
