@@ -58,7 +58,8 @@ let db;
   await db.run(`CREATE TABLE IF NOT EXISTS games (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
-    score INTEGER
+    score INTEGER,
+    timestamp TEXT
   )`);
   await db.run(`CREATE TABLE IF NOT EXISTS rounds (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -195,19 +196,26 @@ app.post('/api/save-game', ensureAuthenticated, async (req, res) => {
   const user = req.user;
 
   try {
-    const { lastID: gameId } = await db.run('INSERT INTO games (user_id, score) VALUES (?, ?)', [user.id, score]);
+    const timestamp = new Date().toISOString();
+    console.log('Saving game for user:', user.id, 'Score:', score, 'Timestamp:', timestamp);
+
+    const { lastID: gameId } = await db.run('INSERT INTO games (user_id, score, timestamp) VALUES (?, ?, ?)', [user.id, score, timestamp]);
+    console.log('Game ID:', gameId);
 
     for (const result of results) {
+      console.log('Saving round for game:', gameId, 'Meme ID:', result.meme.id, 'Selected Caption ID:', result.selectedCaption.id, 'Is Correct:', result.isCorrect);
       await db.run('INSERT INTO rounds (game_id, meme_id, selected_caption_id, is_correct) VALUES (?, ?, ?, ?)', [
         gameId,
         result.meme.id,
-        result.selectedCaption,
+        result.selectedCaption.id,
         result.isCorrect
       ]);
     }
 
     res.status(201).send('Game saved');
   } catch (err) {
+    console.error('Error saving game:', err.message);
+    console.error('Stack trace:', err.stack);
     res.status(500).send('Failed to save game');
   }
 });
@@ -220,7 +228,8 @@ app.get('/api/games', ensureAuthenticated, async (req, res) => {
       const rounds = await db.all('SELECT * FROM rounds WHERE game_id = ?', [game.id]);
       const roundsDetails = await Promise.all(rounds.map(async (round) => {
         const meme = await db.get('SELECT * FROM memes WHERE id = ?', [round.meme_id]);
-        return { ...round, meme };
+        const caption = await db.get('SELECT text FROM captions WHERE id = ?', [round.selected_caption_id]);
+        return { ...round, meme, selected_caption: caption.text };
       }));
       return { ...game, rounds: roundsDetails };
     }));

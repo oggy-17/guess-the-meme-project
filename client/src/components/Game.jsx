@@ -140,10 +140,19 @@ function Game() {
     fetchMeme();
   };
 
+  const handleProfile = () => {
+    navigate('/profile');
+  };
+
   if (gameCompleted) {
     return (
       <div>
-        {!isGuest && <button onClick={handleLogout} style={{ position: 'absolute', top: '10px', right: '10px' }}>Logout</button>}
+        {!isGuest && (
+          <div style={{ position: 'absolute', top: '10px', right: '10px' }}>
+            <button onClick={handleProfile}>Profile</button>
+            <button onClick={handleLogout}>Logout</button>
+          </div>
+        )}
         <h2>Game Over</h2>
         <p>Total Score: {score}</p>
         <h3>Round Results</h3>
@@ -163,7 +172,12 @@ function Game() {
 
   return (
     <div>
-      {!isGuest && <button onClick={handleLogout} style={{ position: 'absolute', top: '10px', right: '10px' }}>Logout</button>}
+      {!isGuest && (
+        <div style={{ position: 'absolute', top: '10px', right: '10px' }}>
+          <button onClick={handleProfile}>Profile</button>
+          <button onClick={handleLogout}>Logout</button>
+        </div>
+      )}
       {meme ? (
         <div>
           <img src={meme.image_url} alt="Meme" />
