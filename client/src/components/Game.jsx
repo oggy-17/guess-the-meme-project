@@ -14,29 +14,45 @@ function Game() {
   const [gameCompleted, setGameCompleted] = useState(false);
   const [roundResults, setRoundResults] = useState([]);
   const [error, setError] = useState('');
+  const [roundMessage, setRoundMessage] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
   const isGuest = new URLSearchParams(location.search).get('guest') === 'true';
   const roundProcessingRef = useRef(false);
 
   useEffect(() => {
-    fetchMeme();
+    if (!isGuest) {
+      showRoundMessage(round);
+    } else {
+      fetchMeme();
+    }
   }, []);
 
   useEffect(() => {
-    const countdown = setInterval(() => {
-      setTimer(prev => {
-        if (prev === 0) {
-          clearInterval(countdown);
-          handleTimeout();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    if (roundMessage) {
+      const timer = setTimeout(() => {
+        setRoundMessage('');
+        fetchMeme();
+      }, 3000); // Show the message for 3 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [roundMessage]);
 
-    return () => clearInterval(countdown);
-  }, [timer]);
+  useEffect(() => {
+    if (!roundMessage) {
+      const countdown = setInterval(() => {
+        setTimer(prev => {
+          if (prev === 0) {
+            clearInterval(countdown);
+            handleTimeout();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(countdown);
+    }
+  }, [timer, roundMessage]);
 
   const fetchMeme = async () => {
     try {
@@ -68,6 +84,10 @@ function Game() {
     }
   };
 
+  const showRoundMessage = (roundNumber) => {
+    setRoundMessage(`Round ${roundNumber} is starting...`);
+  };
+
   const handleTimeout = () => {
     if (roundProcessingRef.current) return;
     roundProcessingRef.current = true;
@@ -87,7 +107,11 @@ function Game() {
       setRound(round + 1);
       setTimer(30);
       setSelectedCaption(null);
-      fetchMeme();
+      if (!isGuest) {
+        showRoundMessage(round + 1);
+      } else {
+        fetchMeme();
+      }
       roundProcessingRef.current = false;
     } else {
       setGameCompleted(true);
@@ -134,7 +158,11 @@ function Game() {
         setRound(round + 1);
         setTimer(30);
         setSelectedCaption(null);
-        fetchMeme();
+        if (!isGuest) {
+          showRoundMessage(round + 1);
+        } else {
+          fetchMeme();
+        }
         roundProcessingRef.current = false;
       } else {
         setGameCompleted(true);
@@ -179,7 +207,11 @@ function Game() {
     setGameCompleted(false);
     setSelectedCaption(null);
     setTimer(30);
-    fetchMeme();
+    if (!isGuest) {
+      showRoundMessage(1);
+    } else {
+      fetchMeme();
+    }
   };
 
   const handleProfile = () => {
@@ -219,32 +251,40 @@ function Game() {
         </div>
       ) : (
         <div>
-          {meme ? (
+          {roundMessage ? (
             <div>
-              <img src={meme.image_url} alt="Meme" className="img-fluid mb-3" />
-              <Row>
-                {captions.map(caption => (
-                  <Col key={caption.id} xs={12} md={6} lg={4} className="mb-3">
-                    <Button
-                      variant={caption === selectedCaption ? "primary" : "outline-primary"}
-                      className="w-100"
-                      onClick={() => setSelectedCaption(caption)}
-                    >
-                      {caption.text}
-                    </Button>
-                  </Col>
-                ))}
-              </Row>
+              <h3>{roundMessage}</h3>
             </div>
           ) : (
-            <p>Loading meme...</p>
+            <div>
+              {meme ? (
+                <div>
+                  <img src={meme.image_url} alt="Meme" className="img-fluid mb-3" />
+                  <Row>
+                    {captions.map(caption => (
+                      <Col key={caption.id} xs={12} md={6} lg={4} className="mb-3">
+                        <Button
+                          variant={caption === selectedCaption ? "primary" : "outline-primary"}
+                          className="w-100"
+                          onClick={() => setSelectedCaption(caption)}
+                        >
+                          {caption.text}
+                        </Button>
+                      </Col>
+                    ))}
+                  </Row>
+                </div>
+              ) : (
+                <p>Loading meme...</p>
+              )}
+              <div>Time left: {timer}s</div>
+              <ProgressBar now={(30 - timer) / 30 * 100} className="mb-3" />
+              <Button variant="primary" onClick={handleSubmit} className="mt-3">Submit</Button>
+              <div>Score: {score}</div>
+              <div>Round: {round} / {isGuest ? 1 : 3}</div>
+              {isGuest && <Button variant="secondary" onClick={handleExit} className="mt-3">Exit</Button>}
+            </div>
           )}
-          <div>Time left: {timer}s</div>
-          <ProgressBar now={(30 - timer) / 30 * 100} className="mb-3" />
-          <Button variant="primary" onClick={handleSubmit} className="mt-3">Submit</Button>
-          <div>Score: {score}</div>
-          <div>Round: {round} / {isGuest ? 1 : 3}</div>
-          {isGuest && <Button variant="secondary" onClick={handleExit} className="mt-3">Exit</Button>}
         </div>
       )}
     </Container>
