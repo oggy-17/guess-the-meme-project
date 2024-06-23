@@ -19,6 +19,7 @@ function Game() {
   const navigate = useNavigate();
   const isGuest = new URLSearchParams(location.search).get('guest') === 'true';
   const roundProcessingRef = useRef(false);
+  const timerRef = useRef(null); // Ref to store timer interval
 
   useEffect(() => {
     if (!isGuest) {
@@ -26,6 +27,12 @@ function Game() {
     } else {
       fetchMeme();
     }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -39,20 +46,21 @@ function Game() {
   }, [roundMessage]);
 
   useEffect(() => {
-    if (!roundMessage) {
-      const countdown = setInterval(() => {
+    if (!roundMessage && !gameCompleted) {
+      if (timerRef.current) clearInterval(timerRef.current); // Clear any existing timer
+      timerRef.current = setInterval(() => {
         setTimer(prev => {
           if (prev === 0) {
-            clearInterval(countdown);
+            clearInterval(timerRef.current);
             handleTimeout();
             return 0;
           }
           return prev - 1;
         });
       }, 1000);
-      return () => clearInterval(countdown);
+      return () => clearInterval(timerRef.current);
     }
-  }, [timer, roundMessage]);
+  }, [timer, roundMessage, gameCompleted]);
 
   const fetchMeme = async () => {
     try {
@@ -92,41 +100,46 @@ function Game() {
     if (roundProcessingRef.current) return;
     roundProcessingRef.current = true;
 
-    const response = await axios.post('http://localhost:3001/api/submit', {
-      meme_id: meme.id,
-      caption_id: null // No caption selected
-    }, {
-      withCredentials: true,
-      params: { guest: isGuest }
-    });
+    try {
+      const response = await axios.post('http://localhost:3001/api/submit', {
+        meme_id: meme.id,
+        caption_id: null // No caption selected
+      }, {
+        withCredentials: true,
+        params: { guest: isGuest }
+      });
 
-    const correctCaptions = response.data.correctCaptions;
+      const correctCaptions = response.data.correctCaptions;
 
-    const result = {
-      meme,
-      selectedCaption: null,
-      isCorrect: false,
-      points: 0,
-      correctCaptions // Store correct captions in results
-    };
+      const result = {
+        meme,
+        selectedCaption: null,
+        isCorrect: false,
+        points: 0,
+        correctCaptions // Store correct captions in results
+      };
 
-    const newResults = [...roundResults, result];
+      const newResults = [...roundResults, result];
 
-    setRoundResults(newResults);
+      setRoundResults(newResults);
 
-    if (round < (isGuest ? 1 : 3)) {
-      setRound(round + 1);
-      setTimer(30);
-      setSelectedCaption(null);
-      if (!isGuest) {
-        showRoundMessage(round + 1);
+      if (round < (isGuest ? 1 : 3)) {
+        setRound(round + 1);
+        setTimer(30);
+        setSelectedCaption(null);
+        if (!isGuest) {
+          showRoundMessage(round + 1);
+        } else {
+          fetchMeme();
+        }
+        roundProcessingRef.current = false;
       } else {
-        fetchMeme();
+        setGameCompleted(true);
+        saveGame(newResults, score);
       }
+    } catch (error) {
+      setError('Error in timeout handling. Please try again.');
       roundProcessingRef.current = false;
-    } else {
-      setGameCompleted(true);
-      saveGame(newResults, score);
     }
   };
 
@@ -220,6 +233,7 @@ function Game() {
     setGameCompleted(false);
     setSelectedCaption(null);
     setTimer(30);
+    roundProcessingRef.current = false; // Reset the round processing flag
     if (!isGuest) {
       showRoundMessage(1);
     } else {
