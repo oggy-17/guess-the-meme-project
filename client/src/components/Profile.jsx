@@ -59,6 +59,7 @@ function Profile() {
                           <p><strong>Selected Caption:</strong> {round.selected_caption || "None"}</p>
                           <p><strong>Correct:</strong> {round.is_correct ? 'Yes' : 'No'}</p>
                           <p><strong>Points:</strong> {round.is_correct ? 5 : 0}</p>
+                          <p><strong>Correct Captions:</strong> {round.correctCaptions.map(caption => caption.text).join(', ')}</p>
                         </div>
                       ))}
                     </Card.Text>

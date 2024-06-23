@@ -88,15 +88,26 @@ function Game() {
     setRoundMessage(`Round ${roundNumber} is starting...`);
   };
 
-  const handleTimeout = () => {
+  const handleTimeout = async () => {
     if (roundProcessingRef.current) return;
     roundProcessingRef.current = true;
+
+    const response = await axios.post('http://localhost:3001/api/submit', {
+      meme_id: meme.id,
+      caption_id: null // No caption selected
+    }, {
+      withCredentials: true,
+      params: { guest: isGuest }
+    });
+
+    const correctCaptions = response.data.correctCaptions;
 
     const result = {
       meme,
       selectedCaption: null,
       isCorrect: false,
       points: 0,
+      correctCaptions // Store correct captions in results
     };
 
     const newResults = [...roundResults, result];
@@ -140,6 +151,7 @@ function Game() {
       });
 
       const isCorrect = response.data.isCorrect;
+      const correctCaptions = response.data.correctCaptions;
       const points = isCorrect ? 5 : 0;
       setScore(prev => prev + points);
 
@@ -148,6 +160,7 @@ function Game() {
         selectedCaption,
         isCorrect,
         points,
+        correctCaptions // Store correct captions in results
       };
 
       const newResults = [...roundResults, result];
@@ -241,6 +254,7 @@ function Game() {
                     <p><strong>Selected Caption:</strong> {result.selectedCaption?.text || "None"}</p>
                     <p><strong>Correct:</strong> {result.isCorrect ? 'Yes' : 'No'}</p>
                     <p><strong>Points:</strong> {result.points}</p>
+                    <p><strong>Correct Captions:</strong> {result.correctCaptions.map(caption => caption.text).join(', ')}</p>
                   </Card.Text>
                 </Card.Body>
               </Card>

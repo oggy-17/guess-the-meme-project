@@ -69,6 +69,12 @@ let db;
     selected_caption_id INTEGER,
     is_correct BOOLEAN
   )`);
+  await db.run(`CREATE TABLE IF NOT EXISTS correct_captions (
+    round_id INTEGER,
+    caption_id INTEGER,
+    FOREIGN KEY (round_id) REFERENCES rounds(id),
+    FOREIGN KEY (caption_id) REFERENCES captions(id)
+  )`);
 })();
 
 passport.use(new LocalStrategy(async (username, password, done) => {
@@ -176,7 +182,11 @@ app.post('/api/submit', ensureAuthenticated, async (req, res) => {
   const { meme_id, caption_id } = req.body;
   const bestMatchCaptions = await db.all('SELECT caption_id FROM meme_captions WHERE meme_id = ? AND best_match = 1', [meme_id]);
   const isCorrect = bestMatchCaptions.some(c => c.caption_id === caption_id);
-  res.json({ isCorrect });
+
+  // Fetch the correct captions to send back
+  const correctCaptions = await db.all('SELECT c.id, c.text FROM captions c JOIN meme_captions mc ON c.id = mc.caption_id WHERE mc.meme_id = ? AND mc.best_match = 1', [meme_id]);
+
+  res.json({ isCorrect, correctCaptions });
 });
 
 app.post('/api/save-game', ensureAuthenticated, async (req, res) => {
@@ -191,12 +201,20 @@ app.post('/api/save-game', ensureAuthenticated, async (req, res) => {
     const { lastID: gameId } = await db.run('INSERT INTO games (user_id, user_game_id, score, timestamp) VALUES (?, ?, ?, ?)', [user.id, userGameId, score, timestamp]);
 
     for (const result of results) {
-      await db.run('INSERT INTO rounds (game_id, meme_id, selected_caption_id, is_correct) VALUES (?, ?, ?, ?)', [
+      const { lastID: roundId } = await db.run('INSERT INTO rounds (game_id, meme_id, selected_caption_id, is_correct) VALUES (?, ?, ?, ?)', [
         gameId,
         result.meme.id,
         result.selectedCaption ? result.selectedCaption.id : null,
         result.isCorrect
       ]);
+
+      // Store correct captions for the round
+      for (const caption of result.correctCaptions) {
+        await db.run('INSERT INTO correct_captions (round_id, caption_id) VALUES (?, ?)', [
+          roundId,
+          caption.id
+        ]);
+      }
     }
 
     res.status(201).send('Game saved');
@@ -214,7 +232,8 @@ app.get('/api/games', ensureAuthenticated, async (req, res) => {
       const roundsDetails = await Promise.all(rounds.map(async (round) => {
         const meme = await db.get('SELECT * FROM memes WHERE id = ?', [round.meme_id]);
         const caption = await db.get('SELECT text FROM captions WHERE id = ?', [round.selected_caption_id]);
-        return { ...round, meme, selected_caption: caption ? caption.text : null };
+        const correctCaptions = await db.all('SELECT c.text FROM correct_captions cc JOIN captions c ON cc.caption_id = c.id WHERE cc.round_id = ?', [round.id]);
+        return { ...round, meme, selected_caption: caption ? caption.text : null, correctCaptions };
       }));
       return { ...game, rounds: roundsDetails };
     }));
