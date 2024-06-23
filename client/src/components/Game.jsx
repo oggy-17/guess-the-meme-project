@@ -79,11 +79,9 @@ function Game() {
       points: 0,
     };
 
-    setRoundResults(prev => {
-      const newResults = [...prev];
-      newResults[round - 1] = result; // Ensure no duplicates
-      return newResults;
-    });
+    const newResults = [...roundResults, result];
+
+    setRoundResults(newResults);
 
     if (round < (isGuest ? 1 : 3)) {
       setRound(round + 1);
@@ -93,7 +91,7 @@ function Game() {
       roundProcessingRef.current = false;
     } else {
       setGameCompleted(true);
-      saveGame([...roundResults, result], score);
+      saveGame(newResults, score);
     }
   };
 
@@ -128,11 +126,9 @@ function Game() {
         points,
       };
 
-      setRoundResults(prev => {
-        const newResults = [...prev];
-        newResults[round - 1] = result; // Ensure no duplicates
-        return newResults;
-      });
+      const newResults = [...roundResults, result];
+
+      setRoundResults(newResults);
 
       if (round < (isGuest ? 1 : 3)) {
         setRound(round + 1);
@@ -142,7 +138,7 @@ function Game() {
         roundProcessingRef.current = false;
       } else {
         setGameCompleted(true);
-        saveGame([...roundResults, result], score + points);
+        saveGame(newResults, score + points);
       }
     } catch (error) {
       setError('Error in submit. Please try again.');
@@ -229,7 +225,11 @@ function Game() {
               <Row>
                 {captions.map(caption => (
                   <Col key={caption.id} xs={12} md={6} lg={4} className="mb-3">
-                    <Button variant="outline-primary" className="w-100" onClick={() => setSelectedCaption(caption)}>
+                    <Button
+                      variant={caption === selectedCaption ? "primary" : "outline-primary"}
+                      className="w-100"
+                      onClick={() => setSelectedCaption(caption)}
+                    >
                       {caption.text}
                     </Button>
                   </Col>

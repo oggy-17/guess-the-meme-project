@@ -17,7 +17,11 @@ function Profile() {
   const fetchGames = async () => {
     try {
       const response = await axios.get('http://localhost:3001/api/games', { withCredentials: true });
-      setGames(response.data);
+      const gamesWithSequentialIds = response.data.map((game, index) => ({
+        ...game,
+        sequentialId: index + 1,
+      }));
+      setGames(gamesWithSequentialIds);
     } catch (error) {
       console.error('Failed to fetch games:', error.response ? error.response.data : error.message);
     }
@@ -45,7 +49,7 @@ function Profile() {
               <Col key={game.id} xs={12} md={6} lg={4}>
                 <Card className="card-custom">
                   <Card.Body>
-                    <Card.Title>Game {game.id}</Card.Title>
+                    <Card.Title>Game {game.sequentialId}</Card.Title>
                     <Card.Subtitle className="mb-2 text-muted">Score: {game.score}</Card.Subtitle>
                     <Card.Text>
                       <p>Played on: {new Date(game.timestamp).toLocaleString()}</p>

@@ -58,6 +58,7 @@ let db;
   await db.run(`CREATE TABLE IF NOT EXISTS games (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
+    user_game_id INTEGER,
     score INTEGER,
     timestamp TEXT
   )`);
@@ -87,14 +88,12 @@ passport.use(new LocalStrategy(async (username, password, done) => {
 }));
 
 passport.serializeUser((user, done) => {
-  console.log('Serializing user:', user);
   done(null, user.id);
 });
 
 passport.deserializeUser(async (id, done) => {
   try {
     const user = await db.get('SELECT * FROM users WHERE id = ?', [id]);
-    console.log('Deserializing user ID:', id, 'User:', user);
     done(null, user);
   } catch (err) {
     done(err);
@@ -120,7 +119,6 @@ app.post('/login', (req, res, next) => {
       if (err) {
         return next(err);
       }
-      console.log('User logged in:', req.user);
       return res.send('Logged in');
     });
   })(req, res, next);
@@ -151,22 +149,15 @@ app.post('/register', async (req, res) => {
 
 app.get('/api/meme', ensureAuthenticated, async (req, res) => {
   try {
-    console.log('Session ID:', req.sessionID);
-    console.log('Fetching meme for user:', req.user);
-
     const meme = await db.get('SELECT * FROM memes ORDER BY RANDOM() LIMIT 1');
     if (!meme) {
-      console.error('No meme found');
       return res.status(404).json({ error: 'No meme found' });
     }
-
-    console.log('Meme found:', meme);
 
     const correctCaptions = await db.all('SELECT c.id, c.text FROM captions c JOIN meme_captions mc ON c.id = mc.caption_id WHERE mc.meme_id = ? AND mc.best_match = 1', [meme.id]);
     const incorrectCaptions = await db.all('SELECT c.id, c.text FROM captions c JOIN meme_captions mc ON c.id = mc.caption_id WHERE mc.meme_id = ? AND mc.best_match = 0', [meme.id]);
 
     if (correctCaptions.length < 2 || incorrectCaptions.length < 5) {
-      console.error('Not enough captions found');
       return res.status(500).json({ error: 'Not enough captions found' });
     }
 
@@ -175,11 +166,8 @@ app.get('/api/meme', ensureAuthenticated, async (req, res) => {
       ...incorrectCaptions.slice(0, 5)
     ].sort(() => Math.random() - 0.5);
 
-    console.log('Captions found:', selectedCaptions);
-
     res.json({ meme, captions: selectedCaptions });
   } catch (err) {
-    console.error('Error fetching meme:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -197,25 +185,22 @@ app.post('/api/save-game', ensureAuthenticated, async (req, res) => {
 
   try {
     const timestamp = new Date().toISOString();
-    console.log('Saving game for user:', user.id, 'Score:', score, 'Timestamp:', timestamp);
+    const maxGameId = await db.get('SELECT MAX(user_game_id) AS max_id FROM games WHERE user_id = ?', [user.id]);
+    const userGameId = (maxGameId.max_id || 0) + 1;
 
-    const { lastID: gameId } = await db.run('INSERT INTO games (user_id, score, timestamp) VALUES (?, ?, ?)', [user.id, score, timestamp]);
-    console.log('Game ID:', gameId);
+    const { lastID: gameId } = await db.run('INSERT INTO games (user_id, user_game_id, score, timestamp) VALUES (?, ?, ?, ?)', [user.id, userGameId, score, timestamp]);
 
     for (const result of results) {
-      console.log('Saving round for game:', gameId, 'Meme ID:', result.meme.id, 'Selected Caption ID:', result.selectedCaption?.id || null, 'Is Correct:', result.isCorrect);
       await db.run('INSERT INTO rounds (game_id, meme_id, selected_caption_id, is_correct) VALUES (?, ?, ?, ?)', [
         gameId,
         result.meme.id,
-        result.selectedCaption?.id || null,
+        result.selectedCaption ? result.selectedCaption.id : null,
         result.isCorrect
       ]);
     }
 
     res.status(201).send('Game saved');
   } catch (err) {
-    console.error('Error saving game:', err.message);
-    console.error('Stack trace:', err.stack);
     res.status(500).send('Failed to save game');
   }
 });
@@ -223,12 +208,12 @@ app.post('/api/save-game', ensureAuthenticated, async (req, res) => {
 app.get('/api/games', ensureAuthenticated, async (req, res) => {
   const user = req.user;
   try {
-    const games = await db.all('SELECT * FROM games WHERE user_id = ?', [user.id]);
+    const games = await db.all('SELECT * FROM games WHERE user_id = ? ORDER BY user_game_id DESC', [user.id]);
     const gameDetails = await Promise.all(games.map(async (game) => {
       const rounds = await db.all('SELECT * FROM rounds WHERE game_id = ?', [game.id]);
       const roundsDetails = await Promise.all(rounds.map(async (round) => {
         const meme = await db.get('SELECT * FROM memes WHERE id = ?', [round.meme_id]);
-        const caption = round.selected_caption_id ? await db.get('SELECT text FROM captions WHERE id = ?', [round.selected_caption_id]) : null;
+        const caption = await db.get('SELECT text FROM captions WHERE id = ?', [round.selected_caption_id]);
         return { ...round, meme, selected_caption: caption ? caption.text : null };
       }));
       return { ...game, rounds: roundsDetails };
