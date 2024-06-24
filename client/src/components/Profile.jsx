@@ -51,15 +51,14 @@ function Profile() {
                   <Card.Body>
                     <Card.Title>Game {game.sequentialId}</Card.Title>
                     <Card.Subtitle className="mb-2 text-muted">Score: {game.score}</Card.Subtitle>
-                    <Card.Text>
-                      <p>Played on: {new Date(game.timestamp).toLocaleString()}</p>
+                    <Card.Text as="div">
+                      <div>Played on: {new Date(game.timestamp).toLocaleString()}</div>
                       {game.rounds.map(round => (
                         <div key={round.id}>
                           <img src={round.meme.image_url} alt="Meme" className="img-fluid mb-2" />
-                          <p><strong>Selected Caption:</strong> {round.selected_caption || "None"}</p>
-                          <p><strong>Correct:</strong> {round.is_correct ? 'Yes' : 'No'}</p>
-                          <p><strong>Points:</strong> {round.is_correct ? 5 : 0}</p>
-                          <p><strong>Correct Captions:</strong> {round.correctCaptions.map(caption => caption.text).join(', ')}</p>
+                          <div><strong>Selected Caption:</strong> {round.selected_caption || "None"}</div>
+                          <div><strong>Correct:</strong> {round.is_correct ? 'Yes' : 'No'}</div>
+                          <div><strong>Points:</strong> {round.is_correct ? 5 : 0}</div>
                         </div>
                       ))}
                     </Card.Text>

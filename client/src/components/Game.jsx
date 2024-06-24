@@ -264,11 +264,17 @@ function Game() {
               <Card key={index} className="mb-3 card-custom">
                 <Card.Body>
                   <Card.Img variant="top" src={result.meme.image_url} />
-                  <Card.Text>
-                    <p><strong>Selected Caption:</strong> {result.selectedCaption?.text || "None"}</p>
-                    <p><strong>Correct:</strong> {result.isCorrect ? 'Yes' : 'No'}</p>
-                    <p><strong>Points:</strong> {result.points}</p>
-                    <p><strong>Correct Captions:</strong> {result.correctCaptions.map(caption => caption.text).join(', ')}</p>
+                  <Card.Text as="div">
+                    <strong>Selected Caption:</strong> {result.selectedCaption?.text || "None"}
+                  </Card.Text>
+                  <Card.Text as="div">
+                    <strong>Correct:</strong> {result.isCorrect ? 'Yes' : 'No'}
+                  </Card.Text>
+                  <Card.Text as="div">
+                    <strong>Points:</strong> {result.points}
+                  </Card.Text>
+                  <Card.Text as="div">
+                    <strong>Correct Captions:</strong> {result.correctCaptions.map(caption => caption.text).join(', ')}
                   </Card.Text>
                 </Card.Body>
               </Card>
