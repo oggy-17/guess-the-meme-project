@@ -93,4 +93,4 @@
 ## Users Credentials
 
 - Username: `user1`, Password: `password1`
-- Username: `user2t`, Password: `password2`
+- Username: `user2`, Password: `password2`
