@@ -82,13 +82,8 @@
 
 ## Screenshots
 
-![Login Page](client/public/screensots/login.png)
-![Register Page](client/public/screensots/register.png)
 ![Game Page](client/public/screensots/game.png)
 ![Game Results Page for LoggedIn User](client/public/screensots/logged-user-results.png)
-![Game Results Page for Guest User](client/public/screensots/guest-user-results.png)
-![Game History Page](client/public/screensots/history.png)
-![Profile Page](client/public/screensots/profile.png)
 
 ## Users Credentials
 
